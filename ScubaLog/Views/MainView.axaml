@@ -1,0 +1,105 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="clr-namespace:ScubaLog.ViewModels"
+    xmlns:controls="clr-namespace:ScubaLog.Controls"
+    x:Class="ScubaLog.Views.MainView"
+    x:DataType="viewModels:MainViewModel">
+    
+    <Grid RowDefinitions="Auto,2*,*"
+          Margin="8">
+
+        <!-- header omitted for brevity -->
+
+        <!-- Graph + detail panel -->
+        <Grid Grid.Row="1"
+              Margin="0,8,0,8"
+              x:Name="GraphHost">
+
+            <!-- Depth profile graph -->
+            <controls:DepthProfileControl x:Name="DepthProfile"
+                                          Samples="{Binding SelectedDive.Samples}"
+                                          ShowRmv="{Binding ShowRmv}"
+                                          ShowTemp="{Binding ShowTemp}"
+                                          ShowPpo2="{Binding ShowPpo2}"
+                                          ShowAir="{Binding ShowAir}"
+                                          PointerEntered="DepthProfile_OnPointerEntered"
+                                          PointerMoved="DepthProfile_OnPointerMoved"
+                                          PointerExited="DepthProfile_OnPointerExited" />
+
+            <!-- Draggable + fading detail popup -->
+            <Border x:Name="DetailPanel"
+                    Width="220"
+                    Background="#CC1E1E1E"
+                    BorderBrush="#888"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="12"
+                    Opacity="0"
+                    PointerPressed="DetailPanel_OnPointerPressed"
+                    PointerMoved="DetailPanel_OnPointerMoved"
+                    PointerReleased="DetailPanel_OnPointerReleased">
+
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity"
+                                          Duration="0:0:0.20" />
+                    </Transitions>
+                </Border.Transitions>
+
+                <StackPanel Spacing="2">
+                    <TextBlock Text="DETAIL"
+                               FontWeight="Bold"
+                               FontSize="12" />
+
+                    <!-- Summary of selected dive -->
+                    <TextBlock Text="{Binding SelectedDive.StartTime, StringFormat='Dive start: {0:T}'}" />
+                    <TextBlock Text="{Binding SelectedDive.Duration, StringFormat='Duration: {0}'}" />
+                    <TextBlock Text="{Binding SelectedDive.MaxDepthMeters, StringFormat='Max depth: {0:F1} m'}" />
+                    <TextBlock Text="{Binding SelectedDive.AvgDepthMeters, StringFormat='Avg depth: {0:F1} m'}" />
+
+                    <Separator Margin="0,6,0,4" />
+
+                    <!-- Scrubber / hover info -->
+                    <TextBlock Text="AT CURSOR"
+                               FontWeight="Bold"
+                               FontSize="11" />
+
+                    <TextBlock Text="{Binding HoverSample.Time, StringFormat='Time: {0:mm\\:ss}'}" />
+                    <TextBlock Text="{Binding HoverSample.DepthMeters, StringFormat='Depth: {0:F1} m'}" />
+
+                    <TextBlock Text="{Binding SelectedDive.Notes}"
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- DataGrid -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Dives}"
+                  SelectedItem="{Binding SelectedDive}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Date"
+                                    Binding="{Binding StartTime}" />
+                <DataGridTextColumn Header="Number"
+                                    Binding="{Binding Number}" />
+                <DataGridTextColumn Header="Duration (min)"
+                                    Binding="{Binding Duration.TotalMinutes}" />
+                <DataGridTextColumn Header="Max depth (m)"
+                                    Binding="{Binding MaxDepthMeters}" />
+                <DataGridTextColumn Header="Avg depth (m)"
+                                    Binding="{Binding AvgDepthMeters}" />
+                <DataGridTextColumn Header="Notes"
+                                    Binding="{Binding Notes}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+    </Grid>
+</UserControl>
