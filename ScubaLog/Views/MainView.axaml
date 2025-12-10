@@ -30,7 +30,7 @@
             <!-- Draggable + fading detail popup -->
             <Border x:Name="DetailPanel"
                     Width="220"
-                    Background="#CC1E1E1E"
+                    Background="#888"
                     BorderBrush="#888"
                     BorderThickness="1"
                     CornerRadius="4"
@@ -60,6 +60,7 @@
                     <TextBlock Text="{Binding SelectedDive.Duration, StringFormat='Duration: {0}'}" />
                     <TextBlock Text="{Binding SelectedDive.MaxDepthMeters, StringFormat='Max depth: {0:F1} m'}" />
                     <TextBlock Text="{Binding SelectedDive.AvgDepthMeters, StringFormat='Avg depth: {0:F1} m'}" />
+
 
                     <Separator Margin="0,6,0,4" />
 

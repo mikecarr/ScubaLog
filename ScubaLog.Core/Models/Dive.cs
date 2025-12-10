@@ -3,86 +3,68 @@ using System.Collections.Generic;
 
 namespace ScubaLog.Core.Models;
 
-/// <summary>
-/// Represents a single logged dive (header / summary info).
-/// Detailed, per-sample data lives in <see cref="Samples"/>.
-/// </summary>
 public class Dive
 {
-    /// <summary>Internal id for persistence.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>Dive number from your logbook.</summary>
-    public double Number { get; set; }
+    // --- Basic dive info ---
+    public int Number { get; set; }                     // ZDIVENUMBER
+    public DateTime StartTime { get; set; }             // ZRAWDATE converted
+    public TimeSpan Duration { get; set; }              // ZTOTALDURATION
+    public double MaxDepthMeters { get; set; }          // ZMAXDEPTH
+    public double AvgDepthMeters { get; set; }          // ZAVERAGEDEPTH
 
-    /// <summary>Local date/time the dive started.</summary>
-    public DateTime StartTime { get; set; }
+    // --- Site (FK) ---
+    public Guid? SiteId { get; set; }
+    public DiveSite? Site { get; set; }
 
-    /// <summary>Total underwater time.</summary>
-    public TimeSpan Duration { get; set; }
+    // --- People ---
+    public List<Buddy> Buddies { get; set; } = new();   // Buddy join table
+    public string? Divemaster { get; set; }             // ZDIVEMASTER
+    public string? DiveOperator { get; set; }           // ZDIVEOPERATOR
 
-    /// <summary>Convenience property: when the dive ended.</summary>
-    public DateTime EndTime => StartTime + Duration;
+    // --- Tanks & gases ---
+    public List<TankUsage> Tanks { get; set; } = new(); // ZTANKANDGAS + ZGAS
+    public string? GasModel { get; set; }               // ZGASMODEL (EAN21, EAN32, Trimix, CCR, etc.)
 
-    /// <summary>Maximum depth reached (m).</summary>
-    public double MaxDepthMeters { get; set; }
+    // --- Tags & types ---
+    public List<string> Tags { get; set; } = new();     // Z_5RELATIONSHIPTAGS
+    public List<string> DiveTypes { get; set; } = new(); // e.g. "Boat", "Rebreather", etc.
 
-    /// <summary>Average depth over the whole dive (m).</summary>
-    public double AvgDepthMeters { get; set; }
+    // --- Environment ---
+    public double? AirTempC { get; set; }               // ZAIRTEMP
+    public double? WaterTempHighC { get; set; }         // ZTEMPHIGH
+    public double? WaterTempLowC { get; set; }          // ZTEMPLOW
+    public string? Weather { get; set; }                // ZWEATHER
+    public string? Current { get; set; }                // ZCURRENT
+    public string? SurfaceConditions { get; set; }      // ZSURFACECONDITIONS
+    public string? Visibility { get; set; }             // ZVISIBILITY (string or int)
+    public string? EntryType { get; set; }              // ZENTRYTYPE
+    public string? WaterType => Site?.WaterType;
 
-    // ---- Site ----
+    // --- Repetitive dive info ---
+    public int? RepetitiveDiveNumber { get; set; }      // ZREPETITIVEDIVENUMBER
+    public double? SurfaceIntervalMinutes { get; set; } // ZSURFACEINTERVAL
 
-    public Guid?    SiteId { get; set; }
-    public DiveSite? Site  { get; set; }
+    // --- Dive computer / series availability ---
+    public bool HasDecompression { get; set; }          // ZDECOMPRESSION
+    public bool HasAirSeries { get; set; }              // ZHASAIR
+    public bool HasNdtSeries { get; set; }              // ZHASNDT
+    public bool HasPpo2Series { get; set; }             // ZHASPPO2
+    public bool HasTempSeries { get; set; }             // ZHASTEMP
+    public double? CnsPercent { get; set; }             // ZCNS
 
-    // ---- Gas / tank info ----
+    public string? DecoModel { get; set; }              // ZDECOMODEL
+    public double? SampleIntervalSeconds { get; set; }  // ZSAMPLEINTERVAL
 
-    /// <summary>Gas label, e.g. "Air", "EAN32", "Tx18/45".</summary>
-    public string Gas { get; set; } = "Air";
+    // --- Logistics / boat ---
+    public string? BoatCaptain { get; set; }            // ZBOATCAPTAIN
+    public string? BoatName { get; set; }               // ZBOATNAME
 
-    /// <summary>Fraction of O₂ (0.21 for air, 0.32 for EAN32).</summary>
-    public double? Fo2 { get; set; }
+    // --- Notes, rating ---
+    public double? Rating { get; set; }                 // ZRATING
+    public string Notes { get; set; } = "";             // ZNOTES
 
-    /// <summary>Fraction of He for trimix (optional).</summary>
-    public double? FHe { get; set; }
-
-    /// <summary>Tank size in cu ft (or litres, depending on how you decide to store it).</summary>
-    public double? TankVolumeCuFt { get; set; }
-
-    /// <summary>Starting cylinder pressure (psi).</summary>
-    public double? StartPressurePsi { get; set; }
-
-    /// <summary>Ending cylinder pressure (psi).</summary>
-    public double? EndPressurePsi { get; set; }
-
-    // ---- Summary stats derived from samples ----
-
-    /// <summary>Shallowest point (m) if you want it, usually 0.</summary>
-    public double? MinDepthMeters { get; set; }
-
-    /// <summary>Average surface-equivalent RMV over the dive (cf/min).</summary>
-    public double? AvgRmv { get; set; }
-
-    /// <summary>Minimum water temperature (°C).</summary>
-    public double? MinTemperatureC { get; set; }
-
-    /// <summary>Maximum water temperature (°C).</summary>
-    public double? MaxTemperatureC { get; set; }
-
-    /// <summary>Maximum PPO₂ during the dive.</summary>
-    public double? MaxPpo2 { get; set; }
-
-    /// <summary>Minimum NDL seen (i.e., the tightest no-deco limit).</summary>
-    public double? MinNdlMinutes { get; set; }
-
-    /// <summary>Maximum TTS seen during the dive.</summary>
-    public double? MaxTtsMinutes { get; set; }
-
-    // ---- Meta / notes ----
-
-    /// <summary>Free-form notes / comments for the log.</summary>
-    public string Notes { get; set; } = string.Empty;
-
-    /// <summary>Per-sample profile data used for graphs and detailed views.</summary>
+    // --- Graph data (from UDDF, Shearwater, or synthetic) ---
     public List<DiveSample> Samples { get; set; } = new();
 }

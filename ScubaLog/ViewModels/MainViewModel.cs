@@ -8,7 +8,6 @@ namespace ScubaLog.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    
     private readonly DiveLogService _service;
 
     public ObservableCollection<Dive> Dives { get; }
@@ -20,25 +19,24 @@ public partial class MainViewModel : ViewModelBase
     private DiveSample? hoverSample;
 
     // Which extra curves are visible on the graph
-    [ObservableProperty]
-    private bool showRmv = true;
+    [ObservableProperty] private bool showRmv  = true;
+    [ObservableProperty] private bool showTemp = true;
+    [ObservableProperty] private bool showPpo2 = true;
+    [ObservableProperty] private bool showAir  = true;
 
-    [ObservableProperty]
-    private bool showTemp = true;
-
-    [ObservableProperty]
-    private bool showPpo2 = true;
-
-    [ObservableProperty]
-    private bool showAir = true;
-    
-    public MainViewModel()
+    // MAIN ctor used at runtime – gets the service (already loaded by App)
+    public MainViewModel(DiveLogService service)
     {
-        _service = new DiveLogService();
+        _service = service;
+
         Dives = new ObservableCollection<Dive>(_service.Dives);
-        
+
         // Default selection
         SelectedDive = Dives.FirstOrDefault();
     }
-    
+
+    // Optional: design-time / fallback ctor that still uses demo data
+    public MainViewModel() : this(new DiveLogService())
+    {
+    }
 }
