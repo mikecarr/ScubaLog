@@ -11,7 +11,7 @@
     *   SAC/RMV (Surface Air Consumption / Respiratory Minute Volume) rates
     *   ppO2 (Partial Pressure of Oxygen)
     *   Air consumption
-*   **Data Import**: Built-in support for importing dive data from **MacDive**.
+*   **Data Import**: Built-in support for importing dive data from **MacDive**. Plan is to add Dive Computer integration.
 *   **Cross-Platform**: Runs natively on:
     *   Windows, macOS, Linux (Desktop)
     *   Android & iOS (Mobile)
@@ -24,7 +24,7 @@
 *   **MVVM Pattern**: [CommunityToolkit.Mvvm](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/)
 *   **Language**: C# 13
 
-## 🏗 Project Structure
+## Project Structure
 
 The solution follows a standard cross-platform architecture:
 
@@ -35,7 +35,7 @@ The solution follows a standard cross-platform architecture:
 *   **`ScubaLog.iOS`**: The iOS application project.
 *   **`ScubaLog.Browser`**: The WebAssembly (Wasm) project.
 
-## 🏃 Getting Started
+## Getting Started
 
 ### Prerequisites
 *   [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
