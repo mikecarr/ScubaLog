@@ -13,6 +13,8 @@ public class Dive
     public TimeSpan Duration { get; set; }              // ZTOTALDURATION
     public double MaxDepthMeters { get; set; }          // ZMAXDEPTH
     public double AvgDepthMeters { get; set; }          // ZAVERAGEDEPTH
+    public string? DiveComputer { get; set; }
+    public string? DiveComputerSerial { get; set; }
 
     // --- Site (FK) ---
     public Guid? SiteId { get; set; }

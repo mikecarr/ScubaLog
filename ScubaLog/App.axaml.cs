@@ -23,6 +23,8 @@ public partial class App : Application
         // Create the core service
         var diveLogService = new DiveLogService();
 
+        
+
         // TODO: change this to your actual MacDiveBase.sqlite path
         const string dbPath = "/Users/mcarr/workspace/decompile/MacDive/MacDive.sqlite";
 

@@ -1,21 +1,14 @@
 # ScubaLog
 
-**ScubaLog** is a modern, cross-platform scuba diving logbook application built with **.NET 9** and **Avalonia UI**. It allows divers to view their dive history, analyze dive profiles, and track gas consumption statistics across Desktop, Mobile, and Web platforms.
+**ScubaLog** is a modern, cross-platform scuba diving logbook application built with **.NET 9** and **Avalonia UI**. It lets you view your dive history, analyze profiles, and track gas/gauge overlays across Desktop, Mobile, and Web.
 
 ## Features
 
-*   **Digital Dive Log**: Browse and view your complete history of recorded dives.
-*   **Advanced Visualization**: Interactive charts for dive profiles, including:
-    *   Depth
-    *   Temperature
-    *   SAC/RMV (Surface Air Consumption / Respiratory Minute Volume) rates
-    *   ppO2 (Partial Pressure of Oxygen)
-    *   Air consumption
-*   **Data Import**: Built-in support for importing dive data from **MacDive**. Plan is to add Dive Computer integration.
-*   **Cross-Platform**: Runs natively on:
-    *   Windows, macOS, Linux (Desktop)
-    *   Android & iOS (Mobile)
-    *   Web Assembly (Browser)
+* Dive log browsing with grid + profile graph (depth/temperature/pressure overlays, hover detail panel)
+* UDDF import (MacDive-export-compatible), with unit-aware display and per-sample gas/PPO2 from mix switches
+* Dive detail window (double-click a dive) with summary + tanks tab
+* Stubbed “Import from dive computer…” dialog (Shearwater/Oceanic/Hollis) ready for libdivecomputer wiring
+* Cross-platform targets: Desktop (Windows/macOS/Linux), Android, iOS, Browser (Wasm)
 
 ## Technologies
 
@@ -49,10 +42,21 @@ The solution follows a standard cross-platform architecture:
     cd ScubaLog
     ```
 
-2.  **Run the Desktop app**:
+2.  **Run the Desktop app** (recommended to suppress Avalonia telemetry write issues):
     ```bash
-    dotnet run --project ScubaLog.Desktop
+    AVALONIA_NO_ANALYTICS=1 dotnet run --project ScubaLog.Desktop
     ```
+
+3.  **Native lib (macOS arm64)**: if you are testing the libdivecomputer resolver, ensure `ScubaLog/runtimes/osx-arm64/native/libdivecomputer.dylib` exists (already placed for local testing). Other RIDs can be added under `runtimes/<rid>/native/`.
+
+## Importing
+* **UDDF**: Settings → “Import UDDF…”, pick a `.uddf`/`.xml`. Gas/PPO2 are derived from `<switchmix>` mixes; temperatures default to Kelvin→°C/°F; pressure defaults to Pa→bar/psi when unitless.
+* **Dive computer (stub)**: Settings → “Import from dive computer…”. UI is wired; importer currently returns no dives until libdivecomputer bindings are implemented.
+
+## Project Structure (quick)
+* `ScubaLog`: Avalonia UI, views/viewmodels.
+* `ScubaLog.Core`: models, services, importers (UDDF, MacDive, dive computer stub).
+* Platform heads: `ScubaLog.Desktop`, `ScubaLog.Android`, `ScubaLog.iOS`, `ScubaLog.Browser`.
 
 ## 📄 License
 [MIT](LICENSE)

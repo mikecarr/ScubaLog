@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewModels="clr-namespace:ScubaLog.ViewModels"
+        x:DataType="viewModels:DiveDetailViewModel"
+        x:Class="ScubaLog.Views.DiveDetailWindow"
+        Width="520"
+        Height="380"
+        Title="Dive Detail"
+        CanResize="True">
+
+  <Grid RowDefinitions="Auto,*"
+        Margin="12">
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="12">
+      <TextBlock Text="{Binding Title}"
+                 FontSize="18"
+                 FontWeight="Bold" />
+      <TextBlock Text="{Binding Location}"
+                 Opacity="0.7" />
+    </StackPanel>
+
+    <TabControl Grid.Row="1"
+                Margin="0,12,0,0">
+      <TabItem Header="This Dive">
+        <Grid ColumnDefinitions="*,*"
+              RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              RowSpacing="6"
+              ColumnSpacing="12"
+              Margin="8">
+          <TextBlock Grid.Row="0" Grid.Column="0" Text="Max depth" FontWeight="SemiBold" />
+          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MaxDepthDisplay}" />
+
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="Avg depth" FontWeight="SemiBold" />
+          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AvgDepthDisplay}" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0" Text="Duration" FontWeight="SemiBold" />
+          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DurationDisplay}" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="Water temp" FontWeight="SemiBold" />
+          <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding WaterTempDisplay}" />
+
+          <TextBlock Grid.Row="4" Grid.Column="0" Text="Notes" FontWeight="SemiBold" />
+          <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Notes}" TextWrapping="Wrap" />
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Equipment">
+        <StackPanel Spacing="8" Margin="8">
+          <TextBlock Text="Tanks" FontWeight="Bold" />
+          <ItemsControl ItemsSource="{Binding Tanks}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="viewModels:DiveDetailViewModel+TankDisplay">
+                <Border BorderBrush="#DDD"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8"
+                        Margin="0,0,0,6">
+                  <Grid ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto"
+                        ColumnSpacing="8"
+                        RowSpacing="4">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Mix" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Mix}" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Size" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Size}" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Start / End" FontWeight="SemiBold" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="{Binding Start}" />
+                      <TextBlock Text="→" />
+                      <TextBlock Text="{Binding End}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>

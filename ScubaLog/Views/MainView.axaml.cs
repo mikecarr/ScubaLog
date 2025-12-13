@@ -1,8 +1,14 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using ScubaLog.Core.Importers;
 using ScubaLog.Core.Models;
 using ScubaLog.ViewModels;
 
@@ -147,5 +153,112 @@ public partial class MainView : UserControl
         _isDragging = false;
         e.Pointer.Capture(null);
         ResetFadeTimer();
+    }
+    
+    
+    
+    private async void OnImportUddfClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        var storage  = topLevel?.StorageProvider;
+        if (storage is null)
+            return;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title         = "Import UDDF file",
+            AllowMultiple = false,
+            FileTypeFilter = new List<FilePickerFileType>
+            {
+                new("UDDF / XML")
+                {
+                    Patterns = new List<string> { "*.uddf", "*.xml" }
+                }
+            }
+        });
+
+        var file = files?.FirstOrDefault();
+        if (file is null)
+            return;
+
+        var localPath = file.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(localPath))
+            return;
+
+        try
+        {
+            vm.ImportUddfFromPath(localPath);
+            SettingsButton.Flyout?.Hide();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to import UDDF: {ex}");
+        }
+    }
+    
+    
+    
+    private void CloseSettings_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        SettingsButton.Flyout?.Hide();
+    }
+
+    private void OnDiveDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || vm.SelectedDive is null)
+            return;
+
+        var detail = new DiveDetailWindow
+        {
+            DataContext = new DiveDetailViewModel(vm.SelectedDive, vm.SelectedUnitSystem)
+        };
+
+        if (TopLevel.GetTopLevel(this) is Window owner)
+            detail.ShowDialog(owner);
+        else
+            detail.Show();
+    }
+
+    private async void OnImportComputerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+
+        var computers = new[]
+        {
+            new DiveComputerModel("Shearwater", "Perdix"),
+            new DiveComputerModel("Shearwater", "Perdix AI"),
+            new DiveComputerModel("Shearwater", "Petrel 3"),
+            new DiveComputerModel("Shearwater", "Teric"),
+            new DiveComputerModel("Oceanic", "DG03"),
+            new DiveComputerModel("Oceanic", "i300"),
+            new DiveComputerModel("Oceanic", "SHEARWATER"),
+            new DiveComputerModel("Hollis", "DG03")
+        };
+
+        var importer = new LibDiveComputerImporter();
+        var vmImport = new DiveComputerImportViewModel(importer, computers)
+        {
+            SelectedManufacturer = computers.First().Manufacturer,
+            SelectedModel = computers.First().Model
+        };
+
+        var dialog = new DiveComputerImportWindow
+        {
+            DataContext = vmImport
+        };
+
+        if (TopLevel.GetTopLevel(this) is Window owner)
+            await dialog.ShowDialog(owner);
+        else
+            dialog.Show();
+
+        if (dialog.ImportedDives is { Count: > 0 })
+        {
+            vm.ReplaceDives(dialog.ImportedDives);
+        }
     }
 }

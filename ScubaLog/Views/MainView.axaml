@@ -3,13 +3,81 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:viewModels="clr-namespace:ScubaLog.ViewModels"
     xmlns:controls="clr-namespace:ScubaLog.Controls"
+    xmlns:converters="clr-namespace:ScubaLog.Converters"
+    xmlns:models="clr-namespace:ScubaLog.Core.Models;assembly=ScubaLog.Core"
     x:Class="ScubaLog.Views.MainView"
-    x:DataType="viewModels:MainViewModel">
-    
-    <Grid RowDefinitions="Auto,2*,*"
+    x:DataType="viewModels:MainViewModel"
+    x:Name="Root">
+
+    <UserControl.Resources>
+        <converters:DepthToDisplayConverter x:Key="DepthToDisplay" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,2*,Auto,*,Auto"
           Margin="8">
 
-        <!-- header omitted for brevity -->
+        <!-- Header / toolbar -->
+        <DockPanel Grid.Row="0"
+                   LastChildFill="True"
+                   Margin="0,0,0,6">
+
+            <TextBlock Text="ScubaLog"
+                       FontSize="18"
+                       FontWeight="Bold"
+                       VerticalAlignment="Center" />
+
+            <Button x:Name="SettingsButton"
+                    DockPanel.Dock="Right"
+                    Content="⚙ Settings"
+                    VerticalAlignment="Center">
+                <Button.Flyout>
+                    <Flyout Placement="Bottom"
+                            ShowMode="Standard">
+                        <StackPanel Width="280"
+                                    Spacing="10"
+                                    Margin="12">
+                            <TextBlock Text="Preferences"
+                                       FontSize="14"
+                                       FontWeight="Bold" />
+                            
+                            <Button Content="Import UDDF..." Click="OnImportUddfClicked" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Units" />
+                                <ComboBox ItemsSource="{Binding UnitSystems}"
+                                          SelectedItem="{Binding SelectedUnitSystem}" />
+                                <TextBlock FontSize="11"
+                                           Opacity="0.7"
+                                           Text="Metric = meters / °C / bar, Imperial = feet / °F / psi, Canadian = meters / °C / psi" />
+                            </StackPanel>
+
+                            <Separator />
+
+                            <TextBlock Text="Graph overlays"
+                                       FontWeight="Bold"
+                                       FontSize="12" />
+
+                            <CheckBox Content="Show RMV"
+                                      IsChecked="{Binding ShowRmv}" />
+                            <CheckBox Content="Show Temp"
+                                      IsChecked="{Binding ShowTemp}" />
+                            <CheckBox Content="Show PPO2"
+                                      IsChecked="{Binding ShowPpo2}" />
+                            <CheckBox Content="Show Air"
+                                      IsChecked="{Binding ShowAir}" />
+
+                            <Button Content="Import from dive computer..."
+                                    Click="OnImportComputerClicked" />
+
+                            <Button Content="Close"
+                                    HorizontalAlignment="Right"
+                                    Click="CloseSettings_OnClick" />
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+        </DockPanel>
 
         <!-- Graph + detail panel -->
         <Grid Grid.Row="1"
@@ -19,10 +87,12 @@
             <!-- Depth profile graph -->
             <controls:DepthProfileControl x:Name="DepthProfile"
                                           Samples="{Binding SelectedDive.Samples}"
+                                          HoverTime="{Binding HoverSample.Time}"
                                           ShowRmv="{Binding ShowRmv}"
                                           ShowTemp="{Binding ShowTemp}"
                                           ShowPpo2="{Binding ShowPpo2}"
                                           ShowAir="{Binding ShowAir}"
+                                          UnitSystem="{Binding SelectedUnitSystem}"
                                           PointerEntered="DepthProfile_OnPointerEntered"
                                           PointerMoved="DepthProfile_OnPointerMoved"
                                           PointerExited="DepthProfile_OnPointerExited" />
@@ -50,57 +120,139 @@
                     </Transitions>
                 </Border.Transitions>
 
-                <StackPanel Spacing="2">
-                    <TextBlock Text="DETAIL"
-                               FontWeight="Bold"
-                               FontSize="12" />
+                <StackPanel Spacing="6">
+                  <TextBlock Text="DETAIL"
+                             FontWeight="Bold"
+                             FontSize="12" />
 
-                    <!-- Summary of selected dive -->
-                    <TextBlock Text="{Binding SelectedDive.StartTime, StringFormat='Dive start: {0:T}'}" />
-                    <TextBlock Text="{Binding SelectedDive.Duration, StringFormat='Duration: {0}'}" />
-                    <TextBlock Text="{Binding SelectedDive.MaxDepthMeters, StringFormat='Max depth: {0:F1} m'}" />
-                    <TextBlock Text="{Binding SelectedDive.AvgDepthMeters, StringFormat='Avg depth: {0:F1} m'}" />
+                  <Grid ColumnDefinitions="Auto,*,Auto"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                        ColumnSpacing="8"
+                        RowSpacing="2">
 
+                    <!-- Left labels -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Time" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Depth" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Temp" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Pressure" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="RMV" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="SAC" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="PPO2" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="NDT" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Deco" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="TTS" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="Ascent" FontWeight="SemiBold" Foreground="#2B4C7E" />
+                    <TextBlock Grid.Row="11" Grid.Column="0" Text="Gas" FontWeight="SemiBold" Foreground="#2B4C7E" />
 
-                    <Separator Margin="0,6,0,4" />
-
-                    <!-- Scrubber / hover info -->
-                    <TextBlock Text="AT CURSOR"
-                               FontWeight="Bold"
-                               FontSize="11" />
-
-                    <TextBlock Text="{Binding HoverSample.Time, StringFormat='Time: {0:mm\\:ss}'}" />
-                    <TextBlock Text="{Binding HoverSample.DepthMeters, StringFormat='Depth: {0:F1} m'}" />
-
-                    <TextBlock Text="{Binding SelectedDive.Notes}"
-                               Margin="0,6,0,0"
-                               TextWrapping="Wrap" />
+                    <!-- Right values (all hover-driven, no static selected-dive values) -->
+                    <TextBlock Grid.Row="0" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverTimeDisplay}" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverDepthDisplay}" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverTempDisplay}" />
+                    <TextBlock Grid.Row="3" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverPressureDisplay}" />
+                    <TextBlock Grid.Row="4" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverRmvDisplay}" />
+                    <TextBlock Grid.Row="5" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverSacDisplay}" />
+                    <TextBlock Grid.Row="6" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverPpo2Display}" />
+                    <TextBlock Grid.Row="7" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverNdtDisplay}" />
+                    <TextBlock Grid.Row="8" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverDecoDisplay}" />
+                    <TextBlock Grid.Row="9" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverTtsDisplay}" />
+                    <TextBlock Grid.Row="10" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverAscentDisplay}" />
+                    <TextBlock Grid.Row="11" Grid.Column="2" HorizontalAlignment="Right" Text="{Binding HoverGasDisplay}" />
+                  </Grid>
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- DataGrid -->
-        <DataGrid Grid.Row="2"
+        <GridSplitter Grid.Row="2"
+                      Height="6"
+                      Background="#DDD"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      ResizeDirection="Rows"
+                      ResizeBehavior="PreviousAndNext" />
+
+        <DataGrid Grid.Row="3"
                   ItemsSource="{Binding Dives}"
                   SelectedItem="{Binding SelectedDive}"
                   AutoGenerateColumns="False"
-                  IsReadOnly="True">
+                  RowHeight="28"
+                  IsReadOnly="True"
+                  DoubleTapped="OnDiveDoubleTapped">
+
+            <DataGrid.Styles>
+                <Style Selector="TextBlock">
+                    <Setter Property="FontSize" Value="12" />
+                </Style>
+            </DataGrid.Styles>
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Date"
                                     Binding="{Binding StartTime}" />
                 <DataGridTextColumn Header="Number"
                                     Binding="{Binding Number}" />
-                <DataGridTextColumn Header="Duration (min)"
-                                    Binding="{Binding Duration.TotalMinutes}" />
-                <DataGridTextColumn Header="Max depth (m)"
-                                    Binding="{Binding MaxDepthMeters}" />
-                <DataGridTextColumn Header="Avg depth (m)"
-                                    Binding="{Binding AvgDepthMeters}" />
+                <DataGridTextColumn Header="Duration"
+                                    Binding="{Binding Duration, StringFormat=mm\\:ss}" />
+
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="{Binding ElementName=Root,
+                                                  Path=DataContext.DepthUnitLabel,
+                                                  StringFormat='Max depth ({0})'}" />
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="models:Dive">
+                            <TextBlock>
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource DepthToDisplay}">
+                                        <Binding Path="MaxDepthMeters" />
+                                        <Binding ElementName="Root" Path="DataContext.SelectedUnitSystem" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="{Binding ElementName=Root,
+                                                  Path=DataContext.DepthUnitLabel,
+                                                  StringFormat='Avg depth ({0})'}" />
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="models:Dive">
+                            <TextBlock>
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource DepthToDisplay}">
+                                        <Binding Path="AvgDepthMeters" />
+                                        <Binding ElementName="Root" Path="DataContext.SelectedUnitSystem" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <DataGridTextColumn Header="Notes"
                                     Binding="{Binding Notes}" />
             </DataGrid.Columns>
         </DataGrid>
+
+        <!-- Footer stats -->
+        <Border Grid.Row="4"
+                Margin="0,8,0,0"
+                Padding="8"
+                BorderBrush="#DDD"
+                BorderThickness="1"
+                CornerRadius="4">
+            <DockPanel>
+                <TextBlock Text="{Binding TotalDives, StringFormat='Dives: {0}'}"
+                           FontWeight="SemiBold" />
+                <TextBlock Text=" • "
+                           Margin="4,0" />
+                <TextBlock Text="{Binding TotalBottomTimeDisplay, StringFormat='Bottom time: {0}'}" />
+            </DockPanel>
+        </Border>
 
     </Grid>
 </UserControl>

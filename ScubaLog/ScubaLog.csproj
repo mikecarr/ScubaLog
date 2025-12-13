@@ -21,7 +21,16 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\ScubaLog.Core\ScubaLog.Core.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScubaLog.Core\ScubaLog.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\DiveComputerImportWindow.axaml.cs">
+      <DependentUpon>DiveComputerImportWindow.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\DiveDetailWindow.axaml.cs">
+      <DependentUpon>DiveDetailWindow.axaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
 </Project>

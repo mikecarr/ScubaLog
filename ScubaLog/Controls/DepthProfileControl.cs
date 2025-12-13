@@ -1,11 +1,13 @@
+
 using System;
 using System.Collections.Generic;
-using System.Linq; // <-- needed for Select/Where/Max
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using ScubaLog.Core.Models;
+using ScubaLog.Core.Units;
 
 namespace ScubaLog.Controls;
 
@@ -29,6 +31,9 @@ public class DepthProfileControl : Control
     public static readonly StyledProperty<bool> ShowAirProperty =
         AvaloniaProperty.Register<DepthProfileControl, bool>(nameof(ShowAir), true);
 
+    public static readonly StyledProperty<UnitSystem> UnitSystemProperty =
+        AvaloniaProperty.Register<DepthProfileControl, UnitSystem>(nameof(UnitSystem), UnitSystem.Metric);
+
     static DepthProfileControl()
     {
         AffectsRender<DepthProfileControl>(
@@ -37,7 +42,8 @@ public class DepthProfileControl : Control
             ShowRmvProperty,
             ShowTempProperty,
             ShowPpo2Property,
-            ShowAirProperty);
+            ShowAirProperty,
+            UnitSystemProperty);
     }
 
     public IList<DiveSample>? Samples
@@ -76,6 +82,41 @@ public class DepthProfileControl : Control
         set => SetValue(ShowAirProperty, value);
     }
 
+    public UnitSystem UnitSystem
+    {
+        get => GetValue(UnitSystemProperty);
+        set => SetValue(UnitSystemProperty, value);
+    }
+
+    private string DepthUnitLabel => UnitSystem == UnitSystem.Imperial ? "ft" : "m";
+
+    private string TemperatureUnitLabel => UnitSystem == UnitSystem.Imperial ? "°F" : "°C";
+
+    private string PressureUnitLabel => UnitSystem switch
+    {
+        UnitSystem.Imperial => "psi",
+        UnitSystem.Canadian => "psi",
+        _ => "bar"
+    };
+
+    private double DepthToDisplay(double meters) => UnitSystem == UnitSystem.Imperial ? meters * 3.28084 : meters;
+
+    private double? TempToDisplay(double? celsius) => celsius is null
+        ? null
+        : UnitSystem == UnitSystem.Imperial
+            ? (celsius.Value * 9.0 / 5.0) + 32.0
+            : celsius.Value;
+
+    // Canonical storage for sample TankPressure is bar. Convert for display.
+    private double? PressureToDisplay(double? bar) => bar is null
+        ? null
+        : UnitSystem switch
+        {
+            UnitSystem.Imperial => bar.Value * 14.5037738,
+            UnitSystem.Canadian => bar.Value * 14.5037738,
+            _ => bar.Value
+        };
+
     private static double ChooseTickIntervalMinutes(double totalMinutes)
     {
         if (totalMinutes <= 15) return 5;
@@ -84,20 +125,20 @@ public class DepthProfileControl : Control
         return 30;
     }
 
-    private static double ChooseDepthInterval(double maxDepth)
+    private static double ChooseDepthInterval(double maxDepthMeters)
     {
-        if (maxDepth <= 15) return 5;
-        if (maxDepth <= 40) return 10;
-        if (maxDepth <= 70) return 15;
+        if (maxDepthMeters <= 15) return 5;
+        if (maxDepthMeters <= 40) return 10;
+        if (maxDepthMeters <= 70) return 15;
         return 20;
     }
 
-    private void DrawSeries(
+    private static void DrawSeries(
         DrawingContext context,
         IList<DiveSample> samples,
         Func<DiveSample, double?> selector,
         IBrush brush,
-        double maxTime,
+        double maxTimeMinutes,
         Rect plotRect)
     {
         // collect only samples that actually have a value
@@ -109,9 +150,11 @@ public class DepthProfileControl : Control
         if (withValues.Count < 2)
             return;
 
-        // scale that series into the same Y-space as depth (0 at top, max at bottom)
         var maxVal = withValues.Max(x => x.Value!.Value);
-        if (maxVal <= 0)
+        var minVal = withValues.Min(x => x.Value!.Value);
+
+        // protect against flatline
+        if (Math.Abs(maxVal - minVal) < 1e-9)
             return;
 
         var pen = new Pen(brush, 1.5);
@@ -122,11 +165,14 @@ public class DepthProfileControl : Control
             var first = true;
             foreach (var x in withValues)
             {
-                var tNorm = x.Sample.Time.TotalMinutes / maxTime;
-                var vNorm = x.Value!.Value / maxVal;
+                var tNorm = maxTimeMinutes <= 0 ? 0 : x.Sample.Time.TotalMinutes / maxTimeMinutes;
+                tNorm = Math.Clamp(tNorm, 0, 1);
 
+                // scale series values into plotRect (top = max, bottom = min)
+                var v = x.Value!.Value;
+                var vNorm = (v - minVal) / (maxVal - minVal);
                 var xPos = plotRect.Left + tNorm * plotRect.Width;
-                var yPos = plotRect.Top + vNorm * plotRect.Height;
+                var yPos = plotRect.Bottom - vNorm * plotRect.Height;
 
                 if (first)
                 {
@@ -154,7 +200,7 @@ public class DepthProfileControl : Control
             return;
 
         // extra bottom padding so time labels + axis title fit
-        var padding = new Thickness(40, 20, 20, 50); // left, top, right, bottom
+        var padding = new Thickness(50, 20, 20, 55);
         var plotRect = rect.Deflate(padding);
 
         // Background of plot area
@@ -163,71 +209,47 @@ public class DepthProfileControl : Control
         var samples = Samples;
         if (samples is null || samples.Count == 0)
         {
-            // Centered "No profile data" message using TextLayout
             var layout = new TextLayout(
                 text: "No profile data",
                 typeface: Typeface.Default,
                 fontSize: 14,
-                foreground: Brushes.Gray
-            );
+                foreground: Brushes.Gray);
 
             var pos = new Point(
                 plotRect.Center.X - layout.Width / 2,
-                plotRect.Center.Y - layout.Height / 2
-            );
+                plotRect.Center.Y - layout.Height / 2);
 
             layout.Draw(context, pos);
             return;
         }
 
         // Compute ranges
-        var maxTime = samples[^1].Time.TotalMinutes;
-        if (maxTime <= 0) maxTime = 1;
+        var maxTimeMinutes = samples[^1].Time.TotalMinutes;
+        if (maxTimeMinutes <= 0) maxTimeMinutes = 1;
 
-        var maxDepth = 0.0;
-        foreach (var s in samples)
-        {
-            if (s.DepthMeters > maxDepth)
-                maxDepth = s.DepthMeters;
-        }
-        if (maxDepth <= 0) maxDepth = 1;
+        var maxDepthMeters = Math.Max(1.0, samples.Max(s => s.DepthMeters));
 
         // Axes
         var axisPen = new Pen(Brushes.Gray, 1);
-
-        // Y axis (depth)
-        context.DrawLine(axisPen,
-            new Point(plotRect.Left, plotRect.Top),
-            new Point(plotRect.Left, plotRect.Bottom));
-
-        // X axis (time)
-        context.DrawLine(axisPen,
-            new Point(plotRect.Left, plotRect.Bottom),
-            new Point(plotRect.Right, plotRect.Bottom));
+        context.DrawLine(axisPen, new Point(plotRect.Left, plotRect.Top), new Point(plotRect.Left, plotRect.Bottom));
+        context.DrawLine(axisPen, new Point(plotRect.Left, plotRect.Bottom), new Point(plotRect.Right, plotRect.Bottom));
 
         // ===== Time axis ticks, labels, and vertical grid lines =====
-        var tickInterval = ChooseTickIntervalMinutes(maxTime);
+        var tickInterval = ChooseTickIntervalMinutes(maxTimeMinutes);
         var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(40, 128, 128, 160)), 1);
         var tickPen = new Pen(Brushes.Gray, 1);
 
-        for (double minute = 0; minute <= maxTime + 0.01; minute += tickInterval)
+        for (double minute = 0; minute <= maxTimeMinutes + 0.01; minute += tickInterval)
         {
-            var tNorm = minute / maxTime; // 0..1 along X
+            var tNorm = minute / maxTimeMinutes;
             var x = plotRect.Left + tNorm * plotRect.Width;
 
-            // vertical grid line across plot area
-            context.DrawLine(gridPen,
-                new Point(x, plotRect.Top),
-                new Point(x, plotRect.Bottom));
+            context.DrawLine(gridPen, new Point(x, plotRect.Top), new Point(x, plotRect.Bottom));
 
-            // tick mark on bottom axis
             var tickTop = plotRect.Bottom;
             var tickBottom = plotRect.Bottom + 4;
-            context.DrawLine(tickPen,
-                new Point(x, tickTop),
-                new Point(x, tickBottom));
+            context.DrawLine(tickPen, new Point(x, tickTop), new Point(x, tickBottom));
 
-            // time label (e.g. 0:00, 10:00, 20:00)
             var ts = TimeSpan.FromMinutes(minute);
             var labelText = ts.ToString(@"m\:ss");
 
@@ -235,88 +257,61 @@ public class DepthProfileControl : Control
                 text: labelText,
                 typeface: Typeface.Default,
                 fontSize: 11,
-                foreground: Brushes.SlateBlue
-            );
+                foreground: Brushes.SlateBlue);
 
-            var labelPos = new Point(
-                x - timeLabel.Width / 2,
-                tickBottom + 2
-            );
-
-            timeLabel.Draw(context, labelPos);
+            timeLabel.Draw(context, new Point(x - timeLabel.Width / 2, tickBottom + 2));
         }
 
-        // "Time (Minutes)" centered under the axis
         var axisTitle = new TextLayout(
             text: "Time (Minutes)",
             typeface: Typeface.Default,
             fontSize: 12,
-            foreground: Brushes.SlateBlue
-        );
+            foreground: Brushes.SlateBlue);
 
-        var axisTitlePos = new Point(
+        axisTitle.Draw(context, new Point(
             plotRect.Left + (plotRect.Width - axisTitle.Width) / 2,
-            plotRect.Bottom + 22
-        );
+            plotRect.Bottom + 24));
 
-        axisTitle.Draw(context, axisTitlePos);
-
-        // ===== Depth axis tick marks + horizontal grid lines =====
-        double depthInterval = ChooseDepthInterval(maxDepth);
-
+        // ===== Depth axis tick marks + horizontal grid lines (depth is canonical meters, labels converted) =====
+        var depthIntervalMeters = ChooseDepthInterval(maxDepthMeters);
         var depthGridPen = new Pen(new SolidColorBrush(Color.FromArgb(40, 128, 128, 160)), 1);
         var depthTickPen = new Pen(Brushes.Gray, 1);
 
-        for (double depth = 0; depth <= maxDepth + 0.01; depth += depthInterval)
+        for (double depthMeters = 0; depthMeters <= maxDepthMeters + 0.01; depthMeters += depthIntervalMeters)
         {
-            double dNorm = depth / maxDepth;
-            double y = plotRect.Top + dNorm * plotRect.Height;
+            var dNorm = depthMeters / maxDepthMeters;
+            var y = plotRect.Top + dNorm * plotRect.Height;
 
-            // Horizontal grid line across the plot
-            context.DrawLine(depthGridPen,
-                new Point(plotRect.Left, y),
-                new Point(plotRect.Right, y));
+            context.DrawLine(depthGridPen, new Point(plotRect.Left, y), new Point(plotRect.Right, y));
 
-            // Tick mark on the left axis
-            double tickLeft = plotRect.Left - 4;
-            double tickRight = plotRect.Left;
-            context.DrawLine(depthTickPen,
-                new Point(tickLeft, y),
-                new Point(tickRight, y));
+            var tickLeft = plotRect.Left - 4;
+            context.DrawLine(depthTickPen, new Point(tickLeft, y), new Point(plotRect.Left, y));
 
-            // Label (e.g., "30 m")
+            var depthDisplay = DepthToDisplay(depthMeters);
             var depthLabel = new TextLayout(
-                text: $"{depth:0} m",
+                text: $"{depthDisplay:0} {DepthUnitLabel}",
                 typeface: Typeface.Default,
                 fontSize: 11,
-                foreground: Brushes.SlateBlue
-            );
+                foreground: Brushes.SlateBlue);
 
-            var labelPos = new Point(
-                plotRect.Left - depthLabel.Width - 8,
-                y - depthLabel.Height / 2
-            );
-
-            depthLabel.Draw(context, labelPos);
+            depthLabel.Draw(context, new Point(plotRect.Left - depthLabel.Width - 8, y - depthLabel.Height / 2));
         }
 
-        // Axis title: "Depth (Meters)"
         var depthTitle = new TextLayout(
-            text: "Depth (Meters)",
+            text: $"Depth ({DepthUnitLabel})",
             typeface: Typeface.Default,
             fontSize: 12,
-            foreground: Brushes.SlateBlue
-        );
+            foreground: Brushes.SlateBlue);
 
-        // Center title vertically along left axis
-        var depthTitlePos = new Point(
-            plotRect.Left - depthTitle.Width - 20,
-            plotRect.Top + (plotRect.Height - depthTitle.Height) / 2
-        );
+        // Draw depth label vertically to avoid truncation
+        var origin = new Point(plotRect.Left - 16, plotRect.Top + plotRect.Height / 2);
+        var translate = new Point(origin.X - depthTitle.Width / 2, origin.Y - depthTitle.Height / 2);
+        using (context.PushPostTransform(Matrix.CreateRotation(-Math.PI / 2, origin)))
+        {
+            depthTitle.Draw(context, translate);
+        }
 
-        depthTitle.Draw(context, depthTitlePos);
-
-        // ===== Depth curve geometry (filled area) =====
+        // ===== Depth curve geometry (depth increases downward) =====
         var depthPen = new Pen(Brushes.DarkBlue, 2);
         var fillBrush = new SolidColorBrush(Color.FromArgb(80, 120, 160, 220));
 
@@ -324,14 +319,15 @@ public class DepthProfileControl : Control
         using (var gctx = geometry.Open())
         {
             var first = true;
-
             foreach (var s in samples)
             {
-                var tNorm = s.Time.TotalMinutes / maxTime;   // 0..1 along X
-                var dNorm = s.DepthMeters / maxDepth;        // 0..1 along Y
+                var tNorm = s.Time.TotalMinutes / maxTimeMinutes;
+                tNorm = Math.Clamp(tNorm, 0, 1);
+
+                var dNorm = s.DepthMeters / maxDepthMeters;
+                dNorm = Math.Clamp(dNorm, 0, 1);
 
                 var x = plotRect.Left + tNorm * plotRect.Width;
-                // depth increases downward
                 var y = plotRect.Top + dNorm * plotRect.Height;
 
                 if (first)
@@ -345,7 +341,7 @@ public class DepthProfileControl : Control
                 }
             }
 
-            // Close the shape to bottom axis for fill
+            // Close to bottom axis for fill
             gctx.LineTo(new Point(plotRect.Right, plotRect.Bottom));
             gctx.LineTo(new Point(plotRect.Left, plotRect.Bottom));
             gctx.EndFigure(isClosed: true);
@@ -353,95 +349,48 @@ public class DepthProfileControl : Control
 
         context.DrawGeometry(fillBrush, depthPen, geometry);
 
-        // ===== Extra series (RMV, Temp, PPO2, Air) overlaid =====
+        // ===== Extra curves (MacDive-ish overlays) =====
+        // These are normalized to their own min/max in the same plotRect.
         if (ShowRmv)
         {
-            DrawSeries(
-                context,
-                samples,
-                s => s.Rmv,              // adjust property name if needed
-                brush: Brushes.Goldenrod,
-                maxTime,
-                plotRect);
+            DrawSeries(context, samples, s => s.Rmv, Brushes.Orange, maxTimeMinutes, plotRect);
         }
 
         if (ShowTemp)
         {
-            // DrawSeries(
-            //     context,
-            //     samples,
-            //     s => s.,            // adjust property name if needed
-            //     brush: Brushes.OrangeRed,
-            //     maxTime,
-            //     plotRect);
+            // Use canonical TemperatureC for storage, convert for display
+            DrawSeries(context, samples, s => TempToDisplay(s.TemperatureC), Brushes.LimeGreen, maxTimeMinutes, plotRect);
         }
 
         if (ShowPpo2)
         {
-            DrawSeries(
-                context,
-                samples,
-                s => s.Ppo2,             // adjust property name if needed
-                brush: Brushes.MediumPurple,
-                maxTime,
-                plotRect);
+            DrawSeries(context, samples, s => s.Ppo2, Brushes.MediumPurple, maxTimeMinutes, plotRect);
         }
 
         if (ShowAir)
         {
-            DrawSeries(
-                context,
-                samples,
-                s => s.TankPressurePsi,  // adjust property name if needed
-                brush: Brushes.LightGreen,
-                maxTime,
-                plotRect);
+            // Use canonical TankPressureBar for storage, convert for display
+            DrawSeries(context, samples, s => PressureToDisplay(s.TankPressureBar), Brushes.Red, maxTimeMinutes, plotRect);
         }
 
-        // ===== Hover / scrubber line (drawn on top of everything) =====
+        // ===== Hover / scrubber line =====
         if (HoverTime is { } hover)
         {
-            // clamp to [0, maxTime]
-            var hoverMinutes = hover.TotalMinutes;
-            if (hoverMinutes < 0) hoverMinutes = 0;
-            if (hoverMinutes > maxTime) hoverMinutes = maxTime;
-
-            var tNormHover = maxTime <= 0 ? 0 : hoverMinutes / maxTime;
+            var hoverMinutes = Math.Clamp(hover.TotalMinutes, 0, maxTimeMinutes);
+            var tNormHover = hoverMinutes / maxTimeMinutes;
             var xHover = plotRect.Left + tNormHover * plotRect.Width;
 
-            var hoverPen = new Pen(Brushes.White, 1); // thin vertical line like MacDive
-            context.DrawLine(hoverPen,
-                new Point(xHover, plotRect.Top),
-                new Point(xHover, plotRect.Bottom));
+            var hoverPen = new Pen(Brushes.White, 1);
+            context.DrawLine(hoverPen, new Point(xHover, plotRect.Top), new Point(xHover, plotRect.Bottom));
         }
 
-        // ===== Depth labels (0 m at top, max at bottom) =====
-        var label0 = new TextLayout(
-            text: "0 m",
+        // Small legend (optional but helps validate units quickly)
+        var legend = new TextLayout(
+            text: $"Temp: {TemperatureUnitLabel}   Pressure: {PressureUnitLabel}",
             typeface: Typeface.Default,
-            fontSize: 12,
-            foreground: Brushes.Gray
-        );
+            fontSize: 11,
+            foreground: Brushes.Gray);
 
-        var labelMax = new TextLayout(
-            text: $"{maxDepth:F0} m",
-            typeface: Typeface.Default,
-            fontSize: 12,
-            foreground: Brushes.Gray
-        );
-
-        // 0 m near top of axis
-        var label0Pos = new Point(
-            plotRect.Left - label0.Width - 4,
-            plotRect.Top - label0.Height / 2
-        );
-        label0.Draw(context, label0Pos);
-
-        // max depth near bottom of axis
-        var labelMaxPos = new Point(
-            plotRect.Left - labelMax.Width - 4,
-            plotRect.Bottom - labelMax.Height / 2
-        );
-        labelMax.Draw(context, labelMaxPos);
+        legend.Draw(context, new Point(plotRect.Right - legend.Width, plotRect.Top - legend.Height - 2));
     }
 }
